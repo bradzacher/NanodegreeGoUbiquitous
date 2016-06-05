@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<android.support.wearable.view.BoxInsetLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:background="@color/background_active"
+    android:id="@+id/box"
+    android:layout_height="match_parent"
+    android:layout_width="match_parent">
+
+    <LinearLayout
+        style="@style/linear_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+
+        <LinearLayout
+            style="@style/linear_layout">
+            <TextView
+                android:id="@+id/hour_text"
+                style="@style/hour_text"
+                tools:text="15" />
+
+            <TextView
+                style="@style/time_text"
+                android:text="@string/time_separator" />
+
+            <TextView
+                android:id="@+id/minute_text"
+                style="@style/minute_text"
+                tools:text="50" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/date_text"
+            style="@style/date_text"
+
+            tools:text="FRI, JUL 14, 2015" />
+
+        <View
+            style="@style/horizontal_separator" />
+
+        <LinearLayout
+            style="@style/linear_layout">
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/art_clear"
+                tools:src="@drawable/art_clear"/>
+
+            <TextView
+                android:id="@+id/temperature_high"
+                style="@style/temperature_high_text"
+                android:text="25°"
+                tools:text="25°"/>
+
+            <TextView
+                android:id="@+id/temperature_low"
+                style="@style/temperature_low_text"
+                android:text="16°"
+                tools:text="16°" />
+        </LinearLayout>
+    </LinearLayout>
+</android.support.wearable.view.BoxInsetLayout>

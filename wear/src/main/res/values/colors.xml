@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background_ambient">#000000</color>
+    <color name="background_active">#609ef0</color>
+    <color name="text">#ffffff</color>
+    <color name="text_dimmed">#b9d8f9</color>
+    <color name="horizontal_separator">#8abdf5</color>
+</resources>

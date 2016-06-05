@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Sunshine</string>
+    <string name="time_separator">:</string>
+    <string name="degrees_symbol">°</string>
+</resources>
