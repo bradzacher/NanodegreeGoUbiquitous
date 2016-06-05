@@ -21,6 +21,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Point;
@@ -29,6 +31,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.wearable.view.BoxInsetLayout;
 import android.support.wearable.watchface.CanvasWatchFaceService;
@@ -40,8 +43,23 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.Asset;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
+
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -53,16 +71,70 @@ import java.util.concurrent.TimeUnit;
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
-public class SunshineWatchFaceService extends CanvasWatchFaceService {
+public class SunshineWatchFaceService extends CanvasWatchFaceService implements DataApi.DataListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+    public final static String TEMPERATURE_HIGH = "TEMP_HIGH";
+    public final static String TEMPERATURE_LOW = "TEMP_LOW";
+    public final static String TEMPERATURE_ICON_ASSET = "TEMP_ICON_ASSET";
+
     /**
      * Update rate in milliseconds for interactive mode. We update once a second since seconds are
      * displayed in interactive mode.
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
 
+    private GoogleApiClient mGoogleApiClient;
+
     @Override
     public Engine onCreateEngine() {
+        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
+                .addApi(Wearable.API)
+                .addOnConnectionFailedListener(this)
+                .addConnectionCallbacks(this).build();
+        mGoogleApiClient.connect();
+
         return new Engine();
+    }
+
+    @Override
+    public void onConnected(Bundle bundle) {
+        Wearable.DataApi.addListener(mGoogleApiClient, this);
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
+
+    int    highTemp, lowTemp;
+    Asset  temperatureIconAsset;
+    Bitmap temperatureIcon;
+
+    @Override
+    public void onDataChanged(DataEventBuffer dataEventBuffer) {
+        for (DataEvent event : dataEventBuffer) {
+            if (event.getType() == DataEvent.TYPE_CHANGED) {
+                DataItem dataItem = event.getDataItem();
+
+                DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
+
+                highTemp = dataMap.getInt(TEMPERATURE_HIGH);
+                lowTemp = dataMap.getInt(TEMPERATURE_LOW);
+                temperatureIconAsset = dataMap.getAsset(TEMPERATURE_ICON_ASSET);
+                // get the bitmap
+                Wearable.DataApi.getFdForAsset(mGoogleApiClient, temperatureIconAsset).setResultCallback(new ResultCallback<DataApi.GetFdForAssetResult>() {
+                    @Override
+                    public void onResult(@NonNull DataApi.GetFdForAssetResult getFdForAssetResult) {
+                        InputStream inputStream = getFdForAssetResult.getInputStream();
+                        temperatureIcon = BitmapFactory.decodeStream(inputStream);
+                    }
+                });
+            }
+        }
     }
 
     private class Engine extends CanvasWatchFaceService.Engine {
@@ -119,8 +191,11 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         private int specW, specH;
         private View myLayout;
-        private TextView hour_text, minute_text, date_text, temperature_high_text, temperature_low_text; // TODO
+        private TextView hour_text, minute_text, date_text, temperature_high_text, temperature_low_text;
         private BoxInsetLayout background_box;
+        private LinearLayout weather_container;
+        private ImageView temperature_icon;
+
         private final Point displaySize = new Point();
 
         /**
@@ -156,6 +231,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             temperature_high_text = (TextView) myLayout.findViewById(R.id.temperature_high);
             temperature_low_text = (TextView) myLayout.findViewById(R.id.temperature_low);
             background_box = (BoxInsetLayout) myLayout.findViewById(R.id.box);
+            temperature_icon = (ImageView) myLayout.findViewById(R.id.temperature_icon);
+            weather_container = (LinearLayout) myLayout.findViewById(R.id.weather_container);
+            weather_container.setVisibility(View.INVISIBLE);
         }
 
         @Override
@@ -271,9 +349,15 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             hour_text.setText(mHourFormat.format(currentDate));
             minute_text.setText(mMinuteFormat.format(currentDate));
 
+            // Update the temps
+            temperature_high_text.setText(getResources().getString(R.string.formatted_temperature, highTemp));
+            temperature_low_text.setText(getResources().getString(R.string.formatted_temperature, lowTemp));
+            temperature_icon.setImageBitmap(temperatureIcon);
+
             // Update the layout
             myLayout.measure(specW, specH);
             myLayout.layout(0, 0, myLayout.getMeasuredWidth(), myLayout.getMeasuredHeight());
+
 
             // Draw it to the Canvas
             canvas.drawColor(Color.BLACK);
