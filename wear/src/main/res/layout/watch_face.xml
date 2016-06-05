@@ -41,12 +41,13 @@
             style="@style/horizontal_separator" />
 
         <LinearLayout
+            android:id="@+id/weather_container"
             style="@style/linear_layout">
             <ImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:src="@drawable/art_clear"
-                tools:src="@drawable/art_clear"/>
+                android:id="@+id/temperature_icon"
+                tools:src="@mipmap/ic_launcher"/>
 
             <TextView
                 android:id="@+id/temperature_high"

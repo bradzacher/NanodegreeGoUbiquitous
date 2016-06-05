@@ -99,15 +99,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             this.updateTimeZone(TimeZone.getTimeZone(timeZoneId));
         }
         public void updateTimeZone(TimeZone timeZone) {
-            mCalendar.setTimeZone(timeZone);
-            mCalendar.clear();
+            mTimeZone = timeZone;
         }
 
         boolean mRegisteredTimeZoneReceiver = false;
 
         boolean mAmbient;
 
-        Calendar mCalendar;
+        TimeZone mTimeZone = TimeZone.getDefault();
         @SuppressLint("SimpleDateFormat")
         SimpleDateFormat mHourFormat = new SimpleDateFormat("HH");
         @SuppressLint("SimpleDateFormat")
@@ -140,8 +139,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                                       .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
                                       .setShowSystemUiTime(false)
                                       .build());
-
-            mCalendar = Calendar.getInstance();
 
             // Inflate the layout that we're using for the watch face
             LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -265,9 +262,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
             // Get the current Time
-            mCalendar.clear();
-
-            Date currentDate = mCalendar.getTime();
+            Date currentDate = Calendar.getInstance(mTimeZone).getTime();
 
             // Apply it to the date field
             date_text.setText(mDateFormat.format(currentDate));
