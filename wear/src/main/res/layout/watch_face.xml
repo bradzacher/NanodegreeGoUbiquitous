@@ -52,13 +52,11 @@
             <TextView
                 android:id="@+id/temperature_high"
                 style="@style/temperature_high_text"
-                android:text="25°"
                 tools:text="25°"/>
 
             <TextView
                 android:id="@+id/temperature_low"
                 style="@style/temperature_low_text"
-                android:text="16°"
                 tools:text="16°" />
         </LinearLayout>
     </LinearLayout>
