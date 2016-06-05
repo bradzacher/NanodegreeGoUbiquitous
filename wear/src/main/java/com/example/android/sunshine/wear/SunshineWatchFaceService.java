@@ -32,10 +32,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
 import android.support.wearable.view.BoxInsetLayout;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
@@ -43,6 +45,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -71,8 +74,10 @@ import java.util.concurrent.TimeUnit;
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
-public class SunshineWatchFaceService extends CanvasWatchFaceService implements DataApi.DataListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener
+public class SunshineWatchFaceService extends CanvasWatchFaceService implements GoogleApiClient.ConnectionCallbacks, DataApi.DataListener, GoogleApiClient.OnConnectionFailedListener
 {
+    private final static String LOG_TAG = "SunshineWearable";
+
     public final static String WEAR_TEMPERATURE_HIGH       = "TEMP_HIGH";
     public final static String WEAR_TEMPERATURE_LOW        = "TEMP_LOW";
     public final static String WEAR_TEMPERATURE_ICON_ASSET = "TEMP_ICON_ASSET";
@@ -85,43 +90,44 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
 
     private GoogleApiClient mGoogleApiClient;
 
-    @Override
-    public Engine onCreateEngine()
-    {
-        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
-                .addApi(Wearable.API)
-                .addOnConnectionFailedListener(this)
-                .addConnectionCallbacks(this).build();
-        mGoogleApiClient.connect();
+    public boolean hasData;
+    public int highTemp, lowTemp;
+    public Asset  temperatureIconAsset;
+    public Bitmap temperatureIcon;
+    private Engine mEngine;
 
-        return new Engine();
+    @Override
+    public void onCreate()
+    {
+        Log.d(LOG_TAG, "Created Service!");
+        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext()).addApi(Wearable.API)
+                                                                               .addConnectionCallbacks(this)
+                                                                               .addOnConnectionFailedListener(this).build();
+        // connect to the api
+        mGoogleApiClient.connect();
     }
 
     @Override
-    public void onConnected(Bundle bundle)
+    public Engine onCreateEngine()
     {
+        Log.d(LOG_TAG, "Created Engine!");
+        mEngine = new Engine();
+        return mEngine;
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle)
+    {
+        Log.d(LOG_TAG, "Connected to API! " + bundle);
+        // we're connected so start listening!
         Wearable.DataApi.addListener(mGoogleApiClient, this);
     }
 
     @Override
-    public void onConnectionSuspended(int i)
-    {
-
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult)
-    {
-
-    }
-
-    int highTemp, lowTemp;
-    Asset  temperatureIconAsset;
-    Bitmap temperatureIcon;
-
-    @Override
     public void onDataChanged(DataEventBuffer dataEventBuffer)
     {
+        Log.d(LOG_TAG, "Message Received!");
+        // message received!
         for (DataEvent event : dataEventBuffer)
         {
             if (event.getType() == DataEvent.TYPE_CHANGED)
@@ -141,10 +147,27 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
                     {
                         InputStream inputStream = getFdForAssetResult.getInputStream();
                         temperatureIcon = BitmapFactory.decodeStream(inputStream);
+
+                        hasData = true;
+
+                        Log.d(LOG_TAG, "All data received, invalidating engine!");
+                        SunshineWatchFaceService.this.mEngine.invalidate();
                     }
                 });
             }
         }
+    }
+
+    @Override
+    public void onConnectionSuspended(int i)
+    {
+        Log.d(LOG_TAG, "API Suspended!");
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult)
+    {
+        Log.d(LOG_TAG, "API CONNECTION FAILED!!!" + connectionResult);
     }
 
     private class Engine extends CanvasWatchFaceService.Engine
@@ -213,9 +236,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
         private int specW, specH;
         private View     myLayout;
         private TextView hour_text, minute_text, date_text, temperature_high_text, temperature_low_text;
-        private BoxInsetLayout background_box;
-        private LinearLayout   weather_container;
-        private ImageView      temperature_icon;
+        private FrameLayout  background_box;
+        private LinearLayout weather_container;
+        private ImageView    temperature_icon;
 
         private final Point displaySize = new Point();
 
@@ -252,7 +275,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
             date_text = (TextView) myLayout.findViewById(R.id.date_text);
             temperature_high_text = (TextView) myLayout.findViewById(R.id.temperature_high);
             temperature_low_text = (TextView) myLayout.findViewById(R.id.temperature_low);
-            background_box = (BoxInsetLayout) myLayout.findViewById(R.id.box);
+            background_box = (FrameLayout) myLayout.findViewById(R.id.box);
             temperature_icon = (ImageView) myLayout.findViewById(R.id.temperature_icon);
             weather_container = (LinearLayout) myLayout.findViewById(R.id.weather_container);
             weather_container.setVisibility(View.INVISIBLE);
@@ -313,18 +336,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
         {
             super.onApplyWindowInsets(insets);
 
-            if (insets.isRound())
-            {
-                // Shrink the face to fit on a round screen
-                mYOffset = mXOffset = displaySize.x * 0.1f;
-                displaySize.y -= 2 * mXOffset;
-                displaySize.x -= 2 * mXOffset;
-            }
-            else
-            {
-                mXOffset = mYOffset = 0;
-            }
-
             // Recompute the MeasureSpec fields - these determine the actual size of the layout
             specW = View.MeasureSpec.makeMeasureSpec(displaySize.x, View.MeasureSpec.EXACTLY);
             specH = View.MeasureSpec.makeMeasureSpec(displaySize.y, View.MeasureSpec.EXACTLY);
@@ -355,21 +366,17 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
                 // Show/hide the seconds fields
                 if (inAmbientMode)
                 {
+                    // blacken the background
                     background_box.setBackgroundColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.background_ambient));
+                    // hide the coloured temperature icon
+                    temperature_icon.setVisibility(View.INVISIBLE);
                 }
                 else
                 {
+                    // blue-en the background
                     background_box.setBackgroundColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.background_active));
-                }
-
-                // Switch between bold & normal font
-                Typeface font = Typeface.create("sans-serif-condensed",
-                                                inAmbientMode ? Typeface.NORMAL : Typeface.BOLD);
-                ViewGroup group = (ViewGroup) myLayout;
-                for (int i = group.getChildCount() - 1; i >= 0; i--)
-                {
-                    // We only get away with this because every child is a TextView
-                    ((TextView) group.getChildAt(i)).setTypeface(font);
+                    // show the coloured temperature icon
+                    temperature_icon.setVisibility(View.VISIBLE);
                 }
 
                 invalidate();
@@ -393,10 +400,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
             hour_text.setText(mHourFormat.format(currentDate));
             minute_text.setText(mMinuteFormat.format(currentDate));
 
-            // Update the temps
-            temperature_high_text.setText(getResources().getString(R.string.formatted_temperature, highTemp));
-            temperature_low_text.setText(getResources().getString(R.string.formatted_temperature, lowTemp));
-            temperature_icon.setImageBitmap(temperatureIcon);
+            // Update the temps, if there's data
+            if (hasData)
+            {
+                temperature_high_text.setText(getResources().getString(R.string.formatted_temperature, highTemp));
+                temperature_low_text.setText(getResources().getString(R.string.formatted_temperature, lowTemp));
+                temperature_icon.setImageBitmap(temperatureIcon);
+                weather_container.setVisibility(View.VISIBLE);
+            }
 
             // Update the layout
             myLayout.measure(specW, specH);
@@ -430,5 +441,13 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService implements 
         {
             return isVisible() && !isInAmbientMode();
         }
+    }
+
+    @Override
+    public void onDestroy()
+    {
+        // disconnect adn remove listeners cos we dead
+        mGoogleApiClient.disconnect();
+        Wearable.DataApi.removeListener(mGoogleApiClient, this);
     }
 }
